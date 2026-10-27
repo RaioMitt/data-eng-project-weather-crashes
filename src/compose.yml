@@ -1,0 +1,180 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Weather database — dbt writes its staging and mart models here
+  # ---------------------------------------------------------------------------
+  weather-db:
+    container_name: weather-db
+    image: postgres:${POSTGRES_VERSION:-16.4}
+    environment:
+      POSTGRES_USER: ${WEATHER_DB_USER:-weather_user}
+      POSTGRES_PASSWORD: ${WEATHER_DB_PASSWORD:-weather_pass}
+      POSTGRES_DB: ${WEATHER_DB_NAME:-weather_db}
+      PGUSER: ${WEATHER_DB_USER:-weather_user}
+      PGPASSWORD: ${WEATHER_DB_PASSWORD:-weather_pass}
+      PGDATABASE: ${WEATHER_DB_NAME:-weather_db}
+    ports:
+      - "${WEATHER_DB_PORT:-5434}:5432"
+    volumes:
+      - ./pgdata_weather:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      retries: 5
+      start_period: 20s
+    restart: always
+
+  # ---------------------------------------------------------------------------
+  # dbt — lightweight container that stays running for the full session.
+  # Students exec into it to run dbt commands:
+  #   docker compose exec dbt dbt seed
+  #   docker compose exec dbt dbt run --selector staging_models
+  # ---------------------------------------------------------------------------
+  dbt:
+    build:
+      context: .
+      dockerfile: dbt.Dockerfile
+    container_name: dbt
+    volumes:
+      - ./dbt_project:/dbt
+    environment:
+      DBT_PROJECT_DIR: /dbt
+      DBT_PROFILES_DIR: /dbt
+    depends_on:
+      weather-db:
+        condition: service_healthy
+    tty: true
+    stdin_open: true
+    restart: always
+
+  # ---------------------------------------------------------------------------
+  # Airflow metadata database
+  # ---------------------------------------------------------------------------
+  airflow-db:
+    container_name: dbt-airflow-db
+    image: postgres:${POSTGRES_VERSION:-16.4}
+    environment:
+      POSTGRES_USER: ${AIRFLOW_DB_USER:-airflow}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:-airflow}
+      POSTGRES_DB: ${AIRFLOW_DB_NAME:-airflow}
+      PGUSER: ${AIRFLOW_DB_USER:-airflow}
+      PGPASSWORD: ${AIRFLOW_DB_PASSWORD:-airflow}
+      PGDATABASE: ${AIRFLOW_DB_NAME:-airflow}
+    ports:
+      - "${AIRFLOW_DB_PORT:-5435}:5432"
+    volumes:
+      - ./pgdata_airflow:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      retries: 5
+      start_period: 20s
+    restart: always
+
+  # ---------------------------------------------------------------------------
+  # Airflow — orchestrates dbt seed, run, test, snapshot
+  # dbt-core and dbt-postgres are pre-installed in airflow.Dockerfile so
+  # containers start immediately (no runtime pip install).
+  # ---------------------------------------------------------------------------
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: airflow.Dockerfile
+    container_name: dbt-airflow-webserver
+    command: webserver
+    user: "50000:0"
+    environment:
+      &airflow-common-env
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:-airflow}@airflow-db:5432/${AIRFLOW_DB_NAME:-airflow}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth"
+      AIRFLOW_CONN_WEATHER_DB: postgres://${WEATHER_DB_USER:-weather_user}:${WEATHER_DB_PASSWORD:-weather_pass}@weather-db:5432/${WEATHER_DB_NAME:-weather_db}
+      DBT_PROJECT_DIR: /dbt
+      DBT_PROFILES_DIR: /dbt
+    ports:
+      - "${AIRFLOW_WEB_PORT:-8080}:8080"
+    volumes:
+      &airflow-common-volumes
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./dbt_project:/dbt
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow-db:
+        condition: service_healthy
+      weather-db:
+        condition: service_healthy
+    restart: always
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: airflow.Dockerfile
+    container_name: dbt-airflow-scheduler
+    command: scheduler
+    user: "50000:0"
+    environment: *airflow-common-env
+    volumes: *airflow-common-volumes
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow-db:
+        condition: service_healthy
+      weather-db:
+        condition: service_healthy
+    restart: always
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: airflow.Dockerfile
+    container_name: dbt-airflow-init
+    entrypoint: /bin/bash
+    user: "0:0"
+    command:
+      - -c
+      - |
+        set -e
+        mkdir -p /opt/airflow/logs /opt/airflow/dags /dbt/target
+        chown -R 50000:0 /opt/airflow/logs /opt/airflow/dags /dbt/target
+        exec runuser -u airflow -- bash -euc "
+          airflow db migrate
+          airflow users create \
+            --username ${AIRFLOW_ADMIN_USER:-airflow} \
+            --password ${AIRFLOW_ADMIN_PASSWORD:-airflow} \
+            --firstname Admin --lastname User \
+            --role Admin --email ${AIRFLOW_ADMIN_EMAIL:-admin@example.com} || true
+          airflow connections delete weather_db 2>/dev/null || true
+          airflow connections add weather_db \
+            --conn-type postgres \
+            --conn-host weather-db \
+            --conn-port 5432 \
+            --conn-schema ${WEATHER_DB_NAME:-weather_db} \
+            --conn-login ${WEATHER_DB_USER:-weather_user} \
+            --conn-password ${WEATHER_DB_PASSWORD:-weather_pass}
+        "
+    environment: *airflow-common-env
+    volumes: *airflow-common-volumes
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      weather-db:
+        condition: service_healthy
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # pgAdmin — browse weather-db and airflow-db in one UI
+  # ---------------------------------------------------------------------------
+  pgadmin:
+    container_name: dbt-pgadmin
+    image: elestio/pgadmin:${PGADMIN_VERSION:-REL-8_10}
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      CSRF_ENABLED: "False"
+    ports:
+      - "${PGADMIN_PORT:-5051}:80"
+    depends_on:
+      - weather-db
+      - airflow-db

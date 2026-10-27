@@ -17,3 +17,5 @@ For this project we use three datasets:
 * Triine Kose
 * Kaaren Tenson
 * Raio Mitt
+
+## Look at docs folder to see how to run the project

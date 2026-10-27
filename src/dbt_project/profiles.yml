@@ -1,0 +1,12 @@
+weather_dbt:              # must match the "profile" key in dbt_project.yml
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: weather-db     # Docker service name (inside compose network)
+      port: 5432
+      user: weather_user
+      password: weather_pass
+      dbname: weather_db
+      schema: public
+      threads: 4
