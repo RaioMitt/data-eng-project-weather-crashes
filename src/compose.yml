@@ -16,6 +16,7 @@ services:
       - "${WEATHER_DB_PORT:-5434}:5432"
     volumes:
       - ./pgdata_weather:/var/lib/postgresql/data
+      - ./schema:/docker-entrypoint-initdb.d:ro   # *.sql run once, on first init
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
       interval: 10s
