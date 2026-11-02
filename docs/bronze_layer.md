@@ -63,3 +63,71 @@ The API also offers `WS10M`, `WD10M`, `RH` and `PA0` (listed in `POSSBIBLE_ELEME
 The API returns at most 20 000 rows per request, so each month is fetched in pages.
 
 On an upsert only `jaam_nimi` and `vaartus` are updated. `loaded_at` keeps the time of the first insert.
+
+
+
+## Weather stations — `raw.weather_stations`
+
+Station metadata (name, coordinates, elevation, active period) from the [keskkonnaandmed API](https://keskkonnaandmed.envir.ee) (`f_kliima_jaam_vaatlus` endpoint). Use it to get the coordinates of each `jaam_kood` in `raw.weather_data_hourly`.
+
+Defined in [`src/schema/bronze.sql`](../src/schema/bronze.sql) and loaded by the Airflow DAG `fetch_station_data_pipeline` ([`src/dags/fetch_station_data.py`](../src/dags/fetch_station_data.py)).
+
+### Running the DAG
+
+The station list rarely changes, so the DAG has no schedule. Trigger it by hand once (and again whenever you want to refresh it):
+
+- **Airflow UI**: open http://localhost:8080, find `fetch_station_data_pipeline` and click ▶ (Trigger DAG).
+- **Command line** (from `src/`):
+  ```bash
+  docker compose exec airflow-scheduler airflow dags trigger fetch_station_data_pipeline
+  ```
+
+If your database was created before this table was added, create it first (keeps existing data):
+
+```bash
+docker compose exec -T weather-db psql < schema/bronze.sql
+```
+
+### Columns
+
+Each row holds **one station period** as a raw JSON document. A station that has been moved has several periods, each with its own coordinates.
+
+| Column | Type | Description |
+|---|---|---|
+| `data` | jsonb | The API row as-is (see the JSON fields below) |
+| `jaam_kood` | text | Station code, copied from `data` automatically (generated column) |
+| `jaam_periood_algus` | text | Start of the period, copied from `data` automatically (generated column) |
+| `loaded_at` | timestamptz | When the row was first inserted |
+| `updated_at` | timestamptz | When the row's `data` last changed |
+
+**Primary key:** `(jaam_kood, jaam_periood_algus)`
+
+JSON fields in `data`:
+
+| Field | Meaning |
+|---|---|
+| `jaam_kood` | Station code, e.g. `AJHARK01` |
+| `jaam_nimi` / `jaam_nimi_eng` | Station name in Estonian / English |
+| `laiuskraad` / `pikkuskraad` | Latitude / longitude (WGS84 degrees) |
+| `korgus_merepinnast_m` | Elevation above sea level (m) |
+| `jaam_periood_algus` / `jaam_periood_lopp` | Start / end of the period. A current location has end `3999-12-31T23:59:00`. |
+
+Current location of every station:
+
+```sql
+SELECT jaam_kood,
+       data ->> 'jaam_nimi'                AS jaam_nimi,
+       (data ->> 'laiuskraad')::numeric    AS lat,
+       (data ->> 'pikkuskraad')::numeric   AS lon
+FROM raw.weather_stations
+WHERE (data ->> 'jaam_periood_lopp')::timestamp > now();
+```
+
+### How the DAG loads data
+
+1. It requests the endpoint in pages of 1000 rows (`limit`/`offset`).
+2. The API repeats each station row many times (about 2100 rows for 34 distinct ones), so the DAG keeps one row per `(jaam_kood, jaam_periood_algus)`.
+3. Rows are **upserted** in batches of 500. An existing row is updated (and `updated_at` set) only if its JSON changed; re-running the DAG creates no duplicates.
+4. If the API returns no rows, the task fails instead of silently loading nothing.
+
+

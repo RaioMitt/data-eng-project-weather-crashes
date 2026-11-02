@@ -12,3 +12,14 @@ CREATE TABLE IF NOT EXISTS raw.weather_data_hourly (
     loaded_at    timestamptz  DEFAULT now(),
     PRIMARY KEY (jaam_kood, aasta, kuu, paev, tund, element_kood)
 );
+-- Weather statio metadata from f_kliima_jaam_vaatlus, one JSONB document per
+-- station period. Key columns are derived from the JSON so the loader only
+-- inserts `data`. Loaded by the DAG fetch_station_data_pipeline.
+CREATE TABLE IF NOT EXISTS raw.weather_stations (
+    data               jsonb       NOT NULL,
+    jaam_kood          text        GENERATED ALWAYS AS (data ->> 'jaam_kood') STORED NOT NULL,
+    jaam_periood_algus text        GENERATED ALWAYS AS (data ->> 'jaam_periood_algus') STORED NOT NULL,
+    loaded_at          timestamptz DEFAULT now(),
+    updated_at         timestamptz DEFAULT now(),
+    PRIMARY KEY (jaam_kood, jaam_periood_algus)
+);
