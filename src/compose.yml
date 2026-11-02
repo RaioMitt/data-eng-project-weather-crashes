@@ -99,6 +99,8 @@ services:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./dbt_project:/dbt
+      - ../sample:/opt/airflow/sample   # lets Airflow see sample/2026_export.csv
+      - ./data:/opt/airflow/data       # folder where Airflow can save downloaded files
     depends_on:
       airflow-init:
         condition: service_completed_successfully

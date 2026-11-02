@@ -12,3 +12,20 @@ CREATE TABLE IF NOT EXISTS raw.weather_data_hourly (
     loaded_at    timestamptz  DEFAULT now(),
     PRIMARY KEY (jaam_kood, aasta, kuu, paev, tund, element_kood)
 );
+
+CREATE TABLE IF NOT EXISTS raw.crashes_raw (
+    juhtumi_id         BIGINT PRIMARY KEY,
+    kuupaev            TEXT,
+    kellaaeg           TEXT,
+    nadalapaev         TEXT,
+    situatsioon        TEXT,
+    kahju_suurus       TEXT,
+    isikukahju         TEXT,
+    x_koord            TEXT,
+    y_koord            TEXT,
+    maakond            TEXT,
+    omavalitsus        TEXT,
+    asula              TEXT,
+    valjavotte_kuupaev TEXT,
+    loaded_at          TIMESTAMPTZ DEFAULT now()
+);

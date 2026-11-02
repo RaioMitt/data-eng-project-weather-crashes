@@ -2,6 +2,8 @@
 
 The bronze layer holds raw data exactly as it comes from the source APIs. It lives in the `raw` schema of the weather DB. Cleaning and reshaping happen later, in the silver and gold layers.
 
+---
+
 ## Weather data — `raw.weather_data_hourly`
 
 Hourly weather measurements from the [keskkonnaandmed API](https://keskkonnaandmed.envir.ee) (`f_kliima_tund` endpoint), for all weather stations in Estonia.
@@ -36,7 +38,7 @@ The data is in long format: each row holds **one measurement** (one element) for
 
 **Primary key:** `(jaam_kood, aasta, kuu, paev, tund, element_kood)`
 
-All times are in **UTC**. Crash times are probably in Estonian local time, so convert one or the other before joining.
+All times are in **UTC**. Crash times are in Estonian local time, so convert one or the other before joining.
 
 ### Element codes
 
@@ -63,3 +65,48 @@ The API also offers `WS10M`, `WD10M`, `RH` and `PA0` (listed in `POSSBIBLE_ELEME
 The API returns at most 20 000 rows per request, so each month is fetched in pages.
 
 On an upsert only `jaam_nimi` and `vaartus` are updated. `loaded_at` keeps the time of the first insert.
+
+---
+
+## Accident data — `raw.crashes_raw`
+
+Traffic accident and motor insurance claims data from the Estonian Motor Insurance Bureau ([Eesti Liikluskindlustuse Fond – LKF](https://kaart.lkf.ee/)) for 2026.
+
+Defined in [`src/schema/bronze.sql`](../src/schema/bronze.sql) and loaded by the Airflow DAG `ingest_accident_data_pipeline` ([`src/dags/fetch_accident_data.py`](../src/dags/fetch_accident_data.py)).
+
+### Running the DAG
+
+- **Scheduled**: Runs automatically **every hour** (`schedule="@hourly"`).
+- **Manual Trigger via Airflow UI**: open http://localhost:8080, find `ingest_accident_data_pipeline` and click ▶ (Trigger DAG).
+
+### Columns
+
+All raw data columns are ingested as text/varchar to preserve original source format without risking type conversion failures on non-standard values (e.g. price ranges like `"alates 10500"`).
+
+| Column | Type | Description |
+|---|---|---|
+| `juhtumi_id` | bigint | Unique claim / accident identifier (Primary Key) |
+| `kuupaev` | text | Date of the accident (YYYY-MM-DD) |
+| `kellaaeg` | text | Time of the accident (HH:MM, Estonian local time) |
+| `nadalapaev` | text | Day of the week in Estonian (e.g., `Esmaspäev`, `Reede`) |
+| `situatsioon` | text | Accident scenario / situation description |
+| `kahju_suurus` | text | Estimated claim/damage amount in EUR (e.g., `1000`, `alates 10500`, `alla 500`) |
+| `isikukahju` | text | Personal injury flag (`Jah` / `Ei`) |
+| `x_koord` | text | Estonian coordinate system L-EST97 X-coordinate (easting) |
+| `y_koord` | text | Estonian coordinate system L-EST97 Y-coordinate (northing) |
+| `maakond` | text | County name (e.g., `Harju maakond`) |
+| `omavalitsus` | text | Municipality / city (e.g., `Tallinn`, `Tartu linn`) |
+| `asula` | text | Settlement / district (e.g., `Kesklinna linnaosa`, `Veibri küla`) |
+| `valjavotte_kuupaev` | text | Date when the record was extracted by LKF |
+| `loaded_at` | timestamptz | When the row was first inserted into the database (`DEFAULT now()`) |
+
+**Primary key:** `juhtumi_id`
+
+### How the DAG loads data
+
+1. **Download**: Fetches the latest cumulative year export CSV directly from `https://kaart.lkf.ee/accident/export/2026`.
+2. **Batch Ingestion**: Reads the semicolon-separated CSV in chunks and inserts in batches of 2,500 records using `execute_values`.
+3. **Upsert Logic**:
+   - New accident IDs are inserted with `loaded_at = now()`.
+   - Existing accident IDs have their attributes updated (in case damage estimates or details were finalized in LKF), while preserving the original `loaded_at` timestamp.
+4. **Logging**: Reports total rows processed, count before/after, and exact count of newly added rows in the task log.
