@@ -21,7 +21,7 @@ docker compose exec -T weather-db psql -f /docker-entrypoint-initdb.d/bronze.sql
 Open http://localhost:8080 (`airflow` / `airflow`). Unpause all DAGs except `example_dbt_pipeline`.
 
 1. Trigger ▶ `fetch_station_data_pipeline`, `fetch_weather_data_pipeline` and `ingest_accident_data_pipeline`. Wait until all are dark green. The first weather load takes a long time (it fetches everything since 2025-01).
-2. Trigger ▶ `build_silver_pipeline`.
+2. Trigger ▶ `dbt_silver_pipeline`.
 
 ## 3. Check the result
 
