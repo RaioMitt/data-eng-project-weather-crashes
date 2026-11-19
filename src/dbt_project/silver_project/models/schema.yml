@@ -1,0 +1,90 @@
+version: 2
+
+models:
+  - name: weather_stations
+    description: "Weather stations, one row per station period (a station can move and then has several rows). Parsed from the JSONB documents in raw.weather_stations."
+    columns:
+      - name: id
+        description: "Surrogate key generated in the model."
+        data_tests: [not_null, unique]
+      - name: station_code
+        description: "Station code, e.g. AJHARK01."
+        data_tests: [not_null]
+      - name: name
+        description: "Station name (falls back to the code if the name is empty)."
+        data_tests: [not_null]
+      - name: x_coordinate
+        description: "Longitude in degrees (-180..180)."
+        data_tests: [not_null]
+      - name: y_coordinate
+        description: "Latitude in degrees (-90..90)."
+        data_tests: [not_null]
+      - name: valid_from
+        description: "First day the station was at these coordinates."
+        data_tests: [not_null]
+      - name: valid_to
+        description: "Last day at these coordinates; NULL = still active."
+
+  - name: weather_hourly
+    description: "Hourly weather, one row per station and hour, pivoted from the long raw format. Invalid values are set to NULL. Only stations that exist in weather_stations are kept."
+    columns:
+      - name: id
+        description: "Surrogate key generated in the model."
+        data_tests: [not_null, unique]
+      - name: station_code
+        description: "Station code; matches weather_stations.station_code."
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('weather_stations')
+              field: station_code
+      - name: date
+        description: "Measurement date (UTC)."
+        data_tests: [not_null]
+      - name: hour
+        description: "Hour of day 0-23 (UTC)."
+        data_tests: [not_null]
+      - name: max_temperature
+        description: "Maximum air temperature in the hour, °C."
+      - name: min_temperature
+        description: "Minimum air temperature in the hour, °C."
+      - name: max_wind_speed
+        description: "Strongest wind gust in the hour, m/s."
+      - name: precipitation
+        description: "Precipitation in the hour, mm."
+      - name: sunshine
+        description: "Minutes of sunshine in the hour (0-60)."
+
+  - name: crashes
+    description: "Traffic crashes with text fields parsed to proper types (dates, amounts, booleans, coordinates)."
+    columns:
+      - name: id
+        description: "Crash id (juhtumi_id) from the source."
+        data_tests: [not_null, unique]
+      - name: damage_amount
+        description: "Damage in euros; for 'below' / 'starting from' it is the stated limit."
+      - name: personal_injury
+        description: "TRUE if a person was injured."
+      - name: date
+        description: "Crash date (Estonian local time)."
+      - name: time
+        description: "Crash time (Estonian local time)."
+      - name: county
+        description: "County (maakond)."
+      - name: municipality
+        description: "Municipality (omavalitsus)."
+      - name: settlement
+        description: "Settlement (asula)."
+      - name: crash_type
+        description: "Crash situation / type (situatsioon)."
+      - name: x_coordinate
+        description: "X coordinate as given by the source."
+      - name: y_coordinate
+        description: "Y coordinate as given by the source."
+      - name: station_code
+        description: "Nearest weather station; empty in silver, filled later."
+      - name: damage_qualifier
+        description: "How damage_amount should be read."
+        data_tests:
+          - accepted_values:
+              values: ["exact", "below", "starting from", "unknown"]

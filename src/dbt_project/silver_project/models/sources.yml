@@ -1,0 +1,35 @@
+version: 2
+
+# Bronze layer: tables in the "raw" schema, loaded by the fetch_* Airflow DAGs.
+# dbt does not build these; models read them through {{ source('raw', '...') }}.
+sources:
+  - name: raw
+    description: "Bronze layer — raw data exactly as it comes from the source APIs."
+    schema: raw
+    tables:
+      - name: weather_data_hourly
+        description: "Hourly weather measurements in long format (one row per station, hour and element), UTC."
+        columns:
+          - name: jaam_kood
+            description: "Weather station code."
+            data_tests:
+              - not_null
+          - name: element_kood
+            description: "Measurement code (TAX1H, TAN1H, WSX1H, PR1H, SDUR1H, ...)."
+            data_tests:
+              - not_null
+      - name: weather_stations
+        description: "Weather station metadata, one JSONB document per station period."
+        columns:
+          - name: jaam_kood
+            description: "Station code (derived from the JSON)."
+            data_tests:
+              - not_null
+      - name: crashes_raw
+        description: "Traffic crash records as text, exactly as exported from kaart.lkf.ee."
+        columns:
+          - name: juhtumi_id
+            description: "Crash id."
+            data_tests:
+              - not_null
+              - unique
