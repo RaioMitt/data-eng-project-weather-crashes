@@ -1,0 +1,175 @@
+version: 2
+
+models:
+  - name: crash_type_dimension
+    description: "Gold dimension with one row per distinct crash type (situatsioon) found in silver crashes."
+    columns:
+      - name: id
+        description: "Surrogate key, assigned in alphabetical order of crash_type."
+        data_tests: [not_null, unique]
+      - name: crash_type
+        description: "Crash situation / type."
+        data_tests: [not_null, unique]
+
+  - name: location_dimension
+    description: "Gold dimension with one row per distinct county / municipality / settlement found in silver crashes. SCD type 1."
+    columns:
+      - name: id
+        description: "Surrogate key."
+        data_tests: [not_null, unique]
+      - name: county
+        description: "County (maakond), e.g. Tartu maakond."
+        data_tests: [not_null]
+      - name: municipality
+        description: "Municipality (omavalitsus), e.g. Luunja vald. May be empty."
+      - name: settlement
+        description: "Settlement (asula), e.g. Vebri küla. May be empty."
+
+  - name: weather_station_dimension
+    description: "Gold dimension with one row per weather station and validity period (SCD type 2, history taken from the source periods)."
+    columns:
+      - name: id
+        description: "Surrogate key."
+        data_tests: [not_null, unique]
+      - name: station_code
+        description: "Station code given by Keskkonnaamet, e.g. AJHARK01."
+        data_tests: [not_null]
+      - name: name
+        description: "Station name."
+        data_tests: [not_null]
+      - name: x_coordinate
+        description: "Longitude in degrees."
+        data_tests: [not_null]
+      - name: y_coordinate
+        description: "Latitude in degrees."
+        data_tests: [not_null]
+      - name: valid_from
+        description: "First day the station was active at these coordinates."
+        data_tests: [not_null]
+      - name: valid_to
+        description: "Last day at these coordinates; NULL means the station is still active."
+
+  - name: time_dimension
+    description: "Gold time dimension, one row per UTC hour. Calendar columns are in Estonian time. SCD type 0."
+    columns:
+      - name: id
+        description: "Surrogate key, assigned in chronological order of utc_timestamp."
+        data_tests: [not_null, unique]
+      - name: utc_timestamp
+        description: "The UTC hour this row stands for. Join key for weather (UTC) and for crashes (after converting Estonian time to UTC)."
+        data_tests: [not_null, unique]
+      - name: date
+        description: "Estonian local date."
+        data_tests: [not_null]
+      - name: year
+        description: "Estonian local year."
+        data_tests: [not_null]
+      - name: month
+        description: "Estonian local month number."
+        data_tests: [not_null]
+      - name: day
+        description: "Estonian local day of month."
+        data_tests: [not_null]
+      - name: weekday
+        description: "Estonian local weekday name."
+      - name: hour
+        description: "Estonian local hour 0-23. Not unique together with date: the October clock change repeats local hour 3."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+              quote: false
+      - name: is_weekend
+        description: "TRUE if the Estonian local date is a Saturday or Sunday."
+
+        
+  - name: station_lest97
+    description: "Helper model (ephemeral, not stored in the database): weather station coordinates converted from degrees to L-EST97 meters, used to find the nearest station to each crash."
+    columns:
+      - name: station_id
+        description: "Id of the row in weather_station_dimension."
+      - name: valid_from
+        description: "First day of the station period."
+      - name: valid_to
+        description: "Last day of the station period; NULL = still active."
+      - name: easting
+        description: "L-EST97 easting in meters (comparable with crash x_coordinate)."
+      - name: northing
+        description: "L-EST97 northing in meters (comparable with crash y_coordinate)."
+
+  - name: crashes_fact_table
+    description: "Gold fact table. Grain: one row per crash (accident case). Keys to time, location, crash type and nearest weather station."
+    columns:
+      - name: id
+        description: "Crash id from the source (juhtumi_id)."
+        data_tests: [not_null, unique]
+      - name: damage_amount
+        description: "Damage in euros, rounded; for 'below' / 'starting from' it is the stated limit."
+        data_tests: [not_null]
+      - name: personal_injury
+        description: "TRUE if a person was injured."
+        data_tests: [not_null]
+      - name: time_id
+        description: "Time of the crash (Estonian time converted to the UTC hour of time_dimension)."
+        data_tests:
+          - relationships:
+              to: ref('time_dimension')
+              field: id
+      - name: location_id
+        description: "Location of the crash."
+        data_tests:
+          - relationships:
+              to: ref('location_dimension')
+              field: id
+      - name: crashtype_id
+        description: "Type of the crash. Empty when the source has no crash type."
+        data_tests:
+          - relationships:
+              to: ref('crash_type_dimension')
+              field: id
+      - name: x_coordinate
+        description: "Crash x coordinate (easting) in L-EST97 meters."
+      - name: y_coordinate
+        description: "Crash y coordinate (northing) in L-EST97 meters."
+      - name: station_id
+        description: "Nearest weather station that was active on the crash date."
+        data_tests:
+          - relationships:
+              to: ref('weather_station_dimension')
+              field: id
+      - name: damage_qualifier
+        description: "How damage_amount should be read."
+        data_tests:
+          - accepted_values:
+              values: ["exact", "below", "starting from", "unknown"]
+
+  - name: weather_fact_table
+    description: "Gold fact table. Grain: one row per weather station and hour (UTC)."
+    columns:
+      - name: id
+        description: "Id of the hourly observation (from silver weather_hourly)."
+        data_tests: [not_null, unique]
+      - name: max_temperature
+        description: "Maximum air temperature in the hour, degrees Celsius."
+      - name: min_temperature
+        description: "Minimum air temperature in the hour, degrees Celsius."
+      - name: max_wind_speed
+        description: "Strongest wind gust in the hour, m/s."
+      - name: precipitation
+        description: "Precipitation in the hour, mm."
+      - name: sunshine
+        description: "Minutes of sunshine in the hour (0-60)."
+      - name: time_id
+        description: "UTC hour of the observation."
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('time_dimension')
+              field: id
+      - name: station_id
+        description: "Station that recorded the observation."
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('weather_station_dimension')
+              field: id
