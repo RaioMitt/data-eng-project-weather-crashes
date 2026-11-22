@@ -1,6 +1,6 @@
 services:
   # ---------------------------------------------------------------------------
-  # Weather database — dbt writes its staging and mart models here
+  # Weather database — holds the bronze (raw), silver and gold schemas
   # ---------------------------------------------------------------------------
   weather-db:
     container_name: weather-db
@@ -26,9 +26,8 @@ services:
 
   # ---------------------------------------------------------------------------
   # dbt — lightweight container that stays running for the full session.
-  # Students exec into it to run dbt commands:
-  #   docker compose exec dbt dbt seed
-  #   docker compose exec dbt dbt run --selector staging_models
+  # Exec into it to run dbt commands, for example:
+  #   docker compose exec dbt dbt build --project-dir /dbt --profiles-dir /dbt --select tag:gold
   # ---------------------------------------------------------------------------
   dbt:
     build:
@@ -72,7 +71,8 @@ services:
     restart: always
 
   # ---------------------------------------------------------------------------
-  # Airflow — orchestrates dbt seed, run, test, snapshot
+  # Airflow — orchestrates the pipeline: the fetch/ingest DAGs load bronze,
+  # dbt_silver_pipeline and dbt_gold_pipeline build silver and gold with dbt.
   # dbt-core and dbt-postgres are pre-installed in airflow.Dockerfile so
   # containers start immediately (no runtime pip install).
   # ---------------------------------------------------------------------------
