@@ -18,4 +18,26 @@ For this project we use three datasets:
 * Kaaren Tenson
 * Raio Mitt
 
-## Look at docs folder to see how to run the project
+## How to run
+1. Start the containers: [docs/startup.md](docs/startup.md)
+2. Build the layers in order: [bronze](docs/bronze_layer.md), [silver](docs/silver_layer.md), [gold](docs/gold_layer.md)
+
+
+## Pipeline overview
+
+Bronze (raw API data, loaded by Airflow) → silver (cleaned, dbt) → gold (star schema, dbt).
+
+### Airflow DAGs
+...
+
+### dbt models and dependencies
+The models, their fields and tests are documented in YAML:
+[gold](src/dbt_project/models/gold/schema.yml),
+[silver](src/dbt_project/models/schema.yml),
+[sources](src/dbt_project/models/sources.yml).
+
+...
+
+## Example analytical queries
+
+### 1. ...

@@ -1,12 +1,13 @@
 # Changing the database schema
 
-The SQL that creates the weather DB's schemas and tables is in [`src/schema/`](../src/schema/):
+The SQL that creates the weather DB's bronze schema and tables is in [`src/schema/`](../src/schema/):
 
 | File | Schema | Contents |
 |---|---|---|
 | `bronze.sql` | `raw` | Raw data loaded from the APIs (see [bronze_layer.md](bronze_layer.md)) |
-| `silver.sql` | `silver` | Cleaned data |
-| `gold.sql` | `gold` | Star schema used for analysis |
+
+Silver and gold are not SQL files: they are dbt models in [`src/dbt_project/models/`](../src/dbt_project/models/) (see [silver_layer.md](silver_layer.md) and [gold_layer.md](gold_layer.md)). Do not add their SQL to `src/schema/`: files in that folder run when a new database is created, before any data has been loaded, so they would fail or build empty tables.
+
 
 ## How the files are run
 
@@ -19,7 +20,7 @@ If the database already exists, editing a file changes nothing until you apply t
 1. Edit the SQL file for the layer you're changing.
 2. Write every statement so it can safely run more than once: `CREATE SCHEMA IF NOT EXISTS ...`, `CREATE TABLE IF NOT EXISTS ...`.
 3. End every statement with `;`. If one statement fails, the whole database fails to start on a fresh init.
-4. If you add a new file whose tables depend on another file's tables, give the files number prefixes (`01_bronze.sql`, `02_silver.sql`, ...) so they run in the right order.
+4. If you add a new file whose tables depend on another file's tables, give the files number prefixes (`01_bronze.sql`, `02_other.sql`, ...) so they run in the right order.
 
 ## Applying a change to an existing database
 
@@ -60,3 +61,7 @@ Open http://localhost:5051, connect to the weather DB (see [startup.md](startup.
   ```
   Then also update the `CREATE TABLE` in the SQL file, so that a fresh database gets the same structure.
 - For a `raw` table: drop it, run the file again, and re-run the DAG to reload the data.
+
+## Changing silver or gold (dbt models)
+
+Edit the model in `src/dbt_project/models/` (silver) or `src/dbt_project/models/gold/` (gold), update its description and tests in the `schema.yml` next to it, and run the DAGs again. dbt drops and rebuilds these tables on every run, so no `ALTER TABLE` and no database rebuild is needed.

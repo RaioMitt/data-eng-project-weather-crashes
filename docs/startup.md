@@ -77,3 +77,13 @@ All values come from `src/compose.yml` defaults and can be overridden in `src/.e
 | `PGADMIN_EMAIL` | `admin@example.com` |
 | `PGADMIN_PASSWORD` | `admin` |
 | `PGADMIN_VERSION` | `REL-8_10` |
+
+## 5. Running the pipeline
+
+After the stack is up, build the layers in this order:
+
+1. Bronze: [bronze_layer.md](bronze_layer.md)
+2. Silver: [silver_layer.md](silver_layer.md)
+3. Gold: [gold_layer.md](gold_layer.md)
+
+To change the database schema, see [change_schema.md](change_schema.md).

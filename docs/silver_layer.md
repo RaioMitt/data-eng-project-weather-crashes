@@ -1,6 +1,6 @@
 # Silver layer — how to run
 
-Silver is built from the bronze (`raw`) tables by the DAG `dbt_silver_pipeline` ([`src/dbt_project/silver_project/`](../src/dbt_project/silver_project/)). Each run drops and rebuilds the tables, so it's safe to run again.
+Silver is built from the bronze (`raw`) tables by the DAG `dbt_silver_pipeline` ([`src/dbt_project/`](../src/dbt_project/)). Each run drops and rebuilds the tables, so it's safe to run again.
 
 ## 1. Start
 
@@ -18,7 +18,7 @@ docker compose exec -T weather-db psql -f /docker-entrypoint-initdb.d/bronze.sql
 
 ## 2. Run the DAGs
 
-Open http://localhost:8080 (`airflow` / `airflow`). Unpause all DAGs except `example_dbt_pipeline` and `build_silver_pipeline`.
+Open http://localhost:8080 (`airflow` / `airflow`). Unpause all DAGs.
 
 1. Trigger ▶ `fetch_station_data_pipeline`, `fetch_weather_data_pipeline` and `ingest_accident_data_pipeline`. Wait until all are dark green. The first weather load takes a long time (it fetches everything since 2025-01).
 2. Trigger ▶ `dbt_silver_pipeline`.
