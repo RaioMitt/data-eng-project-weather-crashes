@@ -16,6 +16,6 @@ with DAG(
     default_args={"owner": "airflow", "retries": 0},
     tags=["dbt", "silver"],
 ) as dag:
-    dbt_run_silver = BashOperator(task_id="dbt_run_silver", bash_command=f"dbt run {DBT_FLAGS}")
-    dbt_test_silver = BashOperator(task_id="dbt_test_silver", bash_command=f"dbt test {DBT_FLAGS}")
+    dbt_run_silver = BashOperator(task_id="dbt_run_silver", bash_command=f"dbt run {DBT_FLAGS} --select tag:silver")
+    dbt_test_silver = BashOperator(task_id="dbt_test_silver", bash_command=f"dbt test {DBT_FLAGS} --select 'tag:silver source:raw'")
     dbt_run_silver >> dbt_test_silver
