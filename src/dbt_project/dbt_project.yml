@@ -1,0 +1,11 @@
+# dbt project for the silver and gold layers.
+#   models/         silver models (cleaned bronze data)
+#   models/gold/    gold models (star schema)
+name: weather_crashes
+version: "1.0.0"
+profile: weather_dbt          # same connection as profiles.yml
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+target-path: "/tmp/weather_crashes_target"
+log-path: "/tmp/weather_crashes_logs"

@@ -6,7 +6,7 @@ import pendulum
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 
-DBT_FLAGS = "--no-use-colors --project-dir /dbt/silver_project --profiles-dir /dbt"
+DBT_FLAGS = "--no-use-colors --project-dir /dbt --profiles-dir /dbt"
 
 with DAG(
     dag_id="dbt_silver_pipeline",
