@@ -18,6 +18,11 @@ Gold is built from silver, so the earlier layers must be built first.
 
 Open http://localhost:8080 (`airflow` / `airflow`). Unpause all DAGs.
 
+The quickest way: trigger ▶ `full_pipeline`. It runs all the steps below in order
+(bronze → silver → gold) and is done when all 8 tasks are dark green.
+
+Or step by step:
+
 1. Trigger ▶ `fetch_station_data_pipeline`, `fetch_weather_data_pipeline` and `ingest_accident_data_pipeline`. Wait until all are dark green.
 2. Trigger ▶ `dbt_silver_pipeline` and wait until it is dark green.
 3. Trigger ▶ `dbt_gold_pipeline`. It has two tasks, `dbt_run_gold` (builds the tables) and `dbt_test_gold` (runs the tests); both must be dark green.
@@ -43,7 +48,17 @@ SELECT (SELECT COUNT(*) FROM gold.crashes_fact_table) AS crashes,
        (SELECT COUNT(*) FROM silver.weather_hourly)   AS silver_weather;
 ```
 
-Each gold count must equal its silver count. Crashes with the weather of their hour:
+Each gold count must equal its silver count. The primary and foreign keys (added by a
+`post_hook` in each gold model) should all be there, 12 rows:
+
+```sql
+SELECT conrelid::regclass AS table_name, conname, pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE connamespace = 'gold'::regnamespace
+ORDER BY 1, 2;
+```
+
+Crashes with the weather of their hour:
 
 ```sql
 SELECT c.id, c.damage_amount, c.personal_injury, t.date, t.hour AS local_hour,
@@ -59,5 +74,7 @@ LIMIT 10;
 
 * `dbt_gold_pipeline` is red: click the red square → Logs. A failed task `dbt_test_gold` means a data check failed; the log names the test.
 * `relation "silver...." does not exist`: run `dbt_silver_pipeline` first.
+* `violates foreign key constraint` in `dbt_run_gold`: a fact row points to a dimension id that does not exist. The log names the constraint (e.g. `crashes_fact_time_fk`) and the missing key.
+* Foreign keys are missing after rebuilding a single dimension (e.g. `--select time_dimension`): dbt drops the old table with `cascade`, which also drops the foreign keys pointing to it. Rebuild all of gold (`--select tag:gold`) to get them back.
 * A gold table appears in a schema called `public_gold` instead of `gold`: the macro `generate_schema_name` in `src/dbt_project/macros` must accept `gold`.
 * The DAG is missing from the list: wait a few minutes and refresh; an "Import Errors" banner at the top of the page names the problem.

@@ -1,4 +1,20 @@
-{{ config(schema='gold', materialized='table', tags=['gold']) }}
+{{ config(
+    schema='gold',
+    materialized='table',
+    tags=['gold'],
+    post_hook="""
+        alter table {{ this }}
+            add primary key (id),
+            add constraint crashes_fact_time_fk
+                foreign key (time_id)      references {{ ref('time_dimension') }} (id),
+            add constraint crashes_fact_location_fk
+                foreign key (location_id)  references {{ ref('location_dimension') }} (id),
+            add constraint crashes_fact_crashtype_fk
+                foreign key (crashtype_id) references {{ ref('crash_type_dimension') }} (id),
+            add constraint crashes_fact_station_fk
+                foreign key (station_id)   references {{ ref('weather_station_dimension') }} (id)
+    """
+) }}
 
 -- Gold fact: traffic crashes.
 -- Grain: one row per crash (accident case).
@@ -9,6 +25,8 @@
 --   station_id   nearest weather station (straight-line distance in L-EST97 meters)
 --                among the stations active on the crash date
 -- Left joins keep every crash even if a lookup fails; the key is then NULL.
+-- The post_hook adds the primary key and foreign keys to the dimensions after the
+-- table is built (NULL keys are allowed by a foreign key).
 
 select
     cr.id::bigint     as id,

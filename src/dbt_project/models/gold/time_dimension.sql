@@ -1,4 +1,9 @@
-{{ config(schema='gold', materialized='table', tags=['gold']) }}
+{{ config(
+    schema='gold',
+    materialized='table',
+    tags=['gold'],
+    post_hook="alter table {{ this }} add primary key (id)"
+) }}
 
 -- Gold dimension: time (SCD type 0, calendar values never change).
 -- Grain: one row per UTC hour. Weather is stored in UTC, crashes in Estonian

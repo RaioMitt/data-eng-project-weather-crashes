@@ -64,4 +64,4 @@ Open http://localhost:5051, connect to the weather DB (see [startup.md](startup.
 
 ## Changing silver or gold (dbt models)
 
-Edit the model in `src/dbt_project/models/` (silver) or `src/dbt_project/models/gold/` (gold), update its description and tests in the `schema.yml` next to it, and run the DAGs again. dbt drops and rebuilds these tables on every run, so no `ALTER TABLE` and no database rebuild is needed.
+Edit the model in `src/dbt_project/models/silver/` (silver) or `src/dbt_project/models/gold/` (gold), update its description and tests in the `schema.yml` next to it, and run the DAGs again. dbt drops and rebuilds these tables on every run, so no `ALTER TABLE` and no database rebuild is needed.

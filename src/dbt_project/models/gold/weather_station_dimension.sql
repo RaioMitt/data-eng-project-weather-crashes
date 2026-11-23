@@ -1,4 +1,9 @@
-{{ config(schema='gold', materialized='table', tags=['gold']) }}
+{{ config(
+    schema='gold',
+    materialized='table',
+    tags=['gold'],
+    post_hook="alter table {{ this }} add primary key (id)"
+) }}
 
 -- Gold dimension: weather stations (SCD type 2).
 -- Grain: one row per station and validity period. The history comes from the

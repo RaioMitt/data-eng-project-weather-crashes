@@ -1,4 +1,9 @@
-{{ config(schema='gold', materialized='table', tags=['gold']) }}
+{{ config(
+    schema='gold',
+    materialized='table',
+    tags=['gold'],
+    post_hook="alter table {{ this }} add primary key (id)"
+) }}
 
 -- Gold dimension: one row per distinct crash type.
 -- Grain: one row per crash type. The id is a surrogate key, deterministic within a run; rebuilt every run 

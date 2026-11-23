@@ -1,4 +1,9 @@
-{{ config(schema='gold', materialized='table', tags=['gold']) }}
+{{ config(
+    schema='gold',
+    materialized='table',
+    tags=['gold'],
+    post_hook="alter table {{ this }} add primary key (id)"
+) }}
 
 -- Gold dimension: one row per distinct county / municipality / settlement
 -- found in silver crashes (SCD type 1: rebuilt from silver on every run).

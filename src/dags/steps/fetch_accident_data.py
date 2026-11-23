@@ -148,6 +148,7 @@ with DAG(
     schedule="@hourly",
     start_date=pendulum.datetime(2026, 1, 1, tz="UTC"),
     catchup=False,
+    auto_register=False,  # full_pipeline.py imports this file; don't register this DAG there
     default_args=default_args,
     tags=["bronze", "lkf", "accidents"],
 ) as dag:

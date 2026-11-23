@@ -1,9 +1,23 @@
-{{ config(schema='gold', materialized='table', tags=['gold']) }}
+{{ config(
+    schema='gold',
+    materialized='table',
+    tags=['gold'],
+    post_hook="""
+        alter table {{ this }}
+            add primary key (id),
+            add constraint weather_fact_time_fk
+                foreign key (time_id)    references {{ ref('time_dimension') }} (id),
+            add constraint weather_fact_station_fk
+                foreign key (station_id) references {{ ref('weather_station_dimension') }} (id)
+    """
+) }}
 
 -- Gold fact: hourly weather observations.
 -- Grain: one row per weather station and hour.
 -- Silver weather is already in UTC, so it is matched to the time dimension
 -- directly on the UTC hour (date + hour).
+-- The post_hook adds the primary key and foreign keys to the dimensions after the
+-- table is built.
 
 select
     w.id,

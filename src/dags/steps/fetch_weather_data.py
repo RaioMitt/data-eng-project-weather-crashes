@@ -48,7 +48,7 @@ def ingest_weather_data():
     rows = pg.get_records("SELECT kuu, aasta FROM raw.weather_data_hourly ORDER BY aasta DESC, kuu DESC LIMIT 1")
     #db has no historical data, so we need to ingest the whole dataset from 2025-01
     if len(rows) == 0:
-        ingest_during_and_after_specified_month(1, 2025)
+        ingest_during_and_after_specified_month(1, 2026)
     else:
         # Determine the last month for which we have data
         last_month = max(row[0] for row in rows)
@@ -129,6 +129,7 @@ with DAG(
     schedule=None,                          # trigger manually
     start_date=pendulum.datetime(2026, 1, 1, tz="UTC"),
     catchup=False,
+    auto_register=False,  # full_pipeline.py imports this file; don't register this DAG there
     default_args=default_args,
     tags=["dbt", "weather"],
 ) as dag:

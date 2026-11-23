@@ -8,7 +8,7 @@ The bronze layer holds raw data exactly as it comes from the source APIs. It liv
 
 Hourly weather measurements from the [keskkonnaandmed API](https://keskkonnaandmed.envir.ee) (`f_kliima_tund` endpoint), for all weather stations in Estonia.
 
-Defined in [`src/schema/bronze.sql`](../src/schema/bronze.sql) and loaded by the Airflow DAG `fetch_weather_data_pipeline` ([`src/dags/fetch_weather_data.py`](../src/dags/fetch_weather_data.py)).
+Defined in [`src/schema/bronze.sql`](../src/schema/bronze.sql) and loaded by the Airflow DAG `fetch_weather_data_pipeline` ([`src/dags/steps/fetch_weather_data.py`](../src/dags/steps/fetch_weather_data.py)).
 
 ### Running the DAG
 
@@ -72,7 +72,7 @@ On an upsert only `jaam_nimi` and `vaartus` are updated. `loaded_at` keeps the t
 
 Station metadata (name, coordinates, elevation, active period) from the [keskkonnaandmed API](https://keskkonnaandmed.envir.ee) (`f_kliima_jaam_vaatlus` endpoint). Use it to get the coordinates of each `jaam_kood` in `raw.weather_data_hourly`.
 
-Defined in [`src/schema/bronze.sql`](../src/schema/bronze.sql) and loaded by the Airflow DAG `fetch_station_data_pipeline` ([`src/dags/fetch_station_data.py`](../src/dags/fetch_station_data.py)).
+Defined in [`src/schema/bronze.sql`](../src/schema/bronze.sql) and loaded by the Airflow DAG `fetch_station_data_pipeline` ([`src/dags/steps/fetch_station_data.py`](../src/dags/steps/fetch_station_data.py)).
 
 ### Running the DAG
 
@@ -140,7 +140,7 @@ WHERE (data ->> 'jaam_periood_lopp')::timestamp > now();
 
 Traffic accident and motor insurance claims data from the Estonian Motor Insurance Bureau ([Eesti Liikluskindlustuse Fond – LKF](https://kaart.lkf.ee/)) for 2026.
 
-Defined in [`src/schema/bronze.sql`](../src/schema/bronze.sql) and loaded by the Airflow DAG `ingest_accident_data_pipeline` ([`src/dags/fetch_accident_data.py`](../src/dags/fetch_accident_data.py)).
+Defined in [`src/schema/bronze.sql`](../src/schema/bronze.sql) and loaded by the Airflow DAG `ingest_accident_data_pipeline` ([`src/dags/steps/fetch_accident_data.py`](../src/dags/steps/fetch_accident_data.py)).
 
 ### Running the DAG
 
