@@ -4,9 +4,6 @@ models:
   - name: weather_stations
     description: "Weather stations, one row per station period (a station can move and then has several rows). Parsed from the JSONB documents in raw.weather_stations."
     columns:
-      - name: id
-        description: "Surrogate key generated in the model."
-        data_tests: [not_null, unique]
       - name: station_code
         description: "Station code, e.g. AJHARK01."
         data_tests: [not_null]
@@ -81,8 +78,6 @@ models:
         description: "X coordinate as given by the source."
       - name: y_coordinate
         description: "Y coordinate as given by the source."
-      - name: station_code
-        description: "Nearest weather station; empty in silver, filled later."
       - name: damage_qualifier
         description: "How damage_amount should be read."
         data_tests:

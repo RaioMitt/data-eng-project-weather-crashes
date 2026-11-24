@@ -1,10 +1,5 @@
 {{ config(schema='silver', materialized='table', tags=['silver']) }}
 
-{{ config(schema='silver', materialized='table', tags=['silver']) }}
-
--- Silver: traffic crashes, text columns parsed into proper types.
--- Source: raw.crashes_raw. Same logic as the old silver.sql section 3.
-
 select
     juhtumi_id as id,
 
@@ -34,8 +29,6 @@ select
 
     case when x_koord ~ '^-?\d+([.,]\d+)?$' then replace(x_koord, ',', '.')::numeric::integer end as x_coordinate,
     case when y_koord ~ '^-?\d+([.,]\d+)?$' then replace(y_koord, ',', '.')::numeric::integer end as y_coordinate,
-
-    null::varchar(50) as station_code,   -- filled in later (gold), nearest station
 
     case
         when kahju_suurus ~ '^\s*\d+([.,]\d+)?\s*$'            then 'exact'
