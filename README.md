@@ -268,3 +268,77 @@ y axis: number of accidents that day):
 ![Number of accidents per day, days ordered by the maximum wind speed of the day](docs/diagrams/accidents-by-wind-speed.png)
 
 No clear effect is visible.
+
+### 4. On which days of the week during snowy or rainy weather happen more traffic accidents?
+
+This query combines the logic of bad weather filtering with the weekday attribute from
+the Time_dimension. Only weather hours with precipitation are kept, and the crash rate
+is compared per 1000 station-hours for each day of the week.
+
+```sql
+SELECT
+    t.weekday,
+    COUNT(c.id) AS total_accidents,
+    COUNT(DISTINCT w.id) AS precipitation_hours,
+    ROUND(1000.0 * COUNT(c.id) / COUNT(DISTINCT w.id), 2) AS accidents_per_1000_hours
+FROM gold.Weather_fact_table w
+JOIN gold.Time_dimension t ON w.time_id = t.id
+LEFT JOIN gold.Crashes_fact_table c
+    ON c.time_id = w.time_id AND c.station_id = w.station_id
+WHERE w.precipitation > 0
+GROUP BY t.weekday
+ORDER BY accidents_per_1000_hours DESC;
+```
+
+Result:
+
+| weekday   | total_accidents | precipitation_hours | accidents_per_1000_hours |
+|-----------|----------------:|--------------------:|-------------------------:|
+| Monday    |             700 |                2632 |                   265.96 |
+| Thursday  |             581 |                2562 |                   226.78 |
+| Friday    |             498 |                2701 |                   184.38 |
+| Tuesday   |             375 |                2118 |                   177.05 |
+| Wednesday |             334 |                2031 |                   164.45 |
+| Saturday  |             384 |                2814 |                   136.46 |
+| Sunday    |             311 |                2686 |                   115.79 |
+
+![Accidents per 1000 precipitation station-hours by day of the week](docs/diagrams/accidents-by-weekday-precipitation.png)
+
+In rainy or snowy hours, Monday has the most crashes per hour (265.96 per 1000
+station-hours), more than twice as many as Sunday (115.79). Weekdays are all above the
+weekend days. The number of precipitation hours differs between weekdays (from 2031 on
+Wednesday to 2814 on Saturday), so the rate per 1000 hours is a fairer comparison than
+the raw accident count.
+
+### 5. Are the more expensive accidents happening at a certain time of the day?
+
+This query calculates the average damage amount per hour of the day to see if specific
+times of day result in more costly incidents.
+
+Only crashes with `damage_qualifier = 'exact'` are used (25,968 of 30,943). The source
+gives the damage as a range, not an exact sum: "below" crashes all have the value 500
+and "starting from" crashes all have 10,500, so including them would distort the
+average. For the same reason the maximum damage per hour is not useful: the damage is
+capped in the source, so almost every hour would show the same maximum value.
+
+```sql
+SELECT
+    t.hour,
+    AVG(c.damage_amount) AS avg_damage_amount,
+    COUNT(c.id) AS total_accidents
+FROM gold.Crashes_fact_table c
+JOIN gold.Time_dimension t ON c.time_id = t.id
+WHERE c.damage_qualifier = 'exact'
+GROUP BY t.hour
+ORDER BY t.hour ASC;
+```
+
+Result:
+
+![Average damage amount of traffic accidents by hour of the day (Estonian time)](docs/diagrams/avg-damage-by-hour.png)
+
+During the day (09:00–17:00) the average damage is very stable, about 2,500 per crash.
+The highest averages are at night and in the early morning (about 2,860 at 02:00 and
+06:00, 2,790 at 04:00), but those hours have very few crashes (47–196), so the averages
+are noisy. In the evening (20:00–21:00) crashes are slightly cheaper, about 2,250–2,300.
+Overall the time of day has only a small effect on how expensive an accident is.

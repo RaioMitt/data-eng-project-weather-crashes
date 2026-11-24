@@ -126,7 +126,7 @@ def list_stations():
 with DAG(
     dag_id="fetch_weather_data_pipeline",
     description="fetch weather data",
-    schedule=None,                          # trigger manually
+    schedule=None,    
     start_date=pendulum.datetime(2026, 1, 1, tz="UTC"),
     catchup=False,
     auto_register=False,  # full_pipeline.py imports this file; don't register this DAG there

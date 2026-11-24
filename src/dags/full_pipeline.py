@@ -28,7 +28,7 @@ from steps.fetch_weather_data import ingest_weather_data
 with DAG(
     dag_id="full_pipeline",
     description="bronze (stations, weather, accidents) -> silver -> gold",
-    schedule=None,                          # trigger manually
+    schedule="@daily",                          # trigger manually
     start_date=pendulum.datetime(2026, 1, 1, tz="UTC"),
     catchup=False,
     default_args={"owner": "airflow", "retries": 0},

@@ -145,7 +145,7 @@ def ingest_accidents_to_bronze():
 with DAG(
     dag_id="ingest_accident_data_pipeline",
     description="Download LKF accident CSV and ingest new/updated rows into bronze layer every hour",
-    schedule="@hourly",
+    schedule=None,
     start_date=pendulum.datetime(2026, 1, 1, tz="UTC"),
     catchup=False,
     auto_register=False,  # full_pipeline.py imports this file; don't register this DAG there
